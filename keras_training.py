@@ -20,7 +20,7 @@ df.describe(include='all')
 list_drop = ['id','attack_cat']
 df.drop(list_drop,axis=1,inplace=True) # 删去数据中的index列和攻击类型列
 
-# Clamp extreme Values 去除异常值？
+# Clamp extreme Values 去除异常值
 df_numeric = df.select_dtypes(include=[np.number])
 df_numeric.describe(include='all')
 
@@ -113,72 +113,10 @@ X_test[:, 18:] = sc.transform(X_test[:, 18:])
 
 model_performance = pd.DataFrame(columns=['Accuracy','Recall','Precision','F1-Score','time to train','time to predict','total time'])
 
-# 深度学习（简单）
-#Import libraries that will allow you to use keras
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, LSTM, GRU
-from tensorflow.keras import metrics
-import numpy as np
-from numpy import array
-
-from tensorflow.keras import backend as K
-
-def recall_m(y_true, y_pred):
-    true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
-    possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
-    recall = true_positives / (possible_positives + K.epsilon())
-    return recall
-
-def precision_m(y_true, y_pred):
-    true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
-    predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
-    precision = true_positives / (predicted_positives + K.epsilon())
-    return precision
-
-def f1_m(y_true, y_pred):
-    precision = precision_m(y_true, y_pred)
-    recall = recall_m(y_true, y_pred)
-    return 2*((precision*recall)/(precision+recall+K.epsilon()))
-
-#Build the feed forward neural network model
-def build_model():
-    model = Sequential()
-    model.add(Dense(20, input_dim=56, activation='relu'))
-    model.add(Dense(20, activation='relu'))
-    model.add(Dense(20, activation='softmax')) #for multiclass classification
-    #Compile the model
-    model.compile(loss='sparse_categorical_crossentropy', optimizer='adam',
-                  metrics=['accuracy',f1_m,precision_m, recall_m]
-                 )
-    return model
-
-#institate the model
-model = build_model()
-
-#fit the model
-start = time.time()
-print("EasyNeutralNetwork")
-model.fit(X_train, y_train, epochs=200, batch_size=2000,verbose=2)
-end_train = time.time()
-
 # GRU(keras)
 #Build the neural network model
 
 from tensorflow.keras.layers import BatchNormalization, Dropout
-
-"""
-def build_model():
-    model = Sequential()
-    model.add(GRU(20, return_sequences=True,input_shape=(1,56)))
-    model.add(GRU(20, return_sequences=True))
-    model.add(Dense(10, activation='softmax')) #for multiclass classification
-    #Compile the model
-    model.compile(loss='sparse_categorical_crossentropy', optimizer='adam',
-                  # metrics=['accuracy',f1_m,precision_m, recall_m]
-                  metrics=['accuracy']
-                 )
-    return model
-"""
 
 def build_model(drop):
     model = Sequential()
@@ -191,23 +129,6 @@ def build_model(drop):
     model.add(GRU(128, return_sequences=True))  # 此处就无需设定输入尺寸，只有第一层需要设定，后续均会自动计算
     model.add(Dropout(drop))
 
-    # model.add(GRU(64, input_shape=(1,56), return_sequences=True))  # 添加了一层GRU模型，设定其输入尺寸（为get_GRU函数的第一个参数）为shape
-    # model.add(BatchNormalization())  # 对数据进行批量归一化后造出的一层，可以优化神经网络
-    # model.add(Dropout(0.5))  # Dropout以防止模型过拟合
-    #
-    # model.add(GRU(64, return_sequences=True))  # 此处就无需设定输入尺寸，只有第一层需要设定，后续均会自动计算
-    # model.add(BatchNormalization())
-    # model.add(Dropout(0.5))
-
-    """
-    model.add(GRU(128, return_sequences=True))  # 64为隐藏神经元数量
-    model.add(BatchNormalization())
-    model.add(Dropout(drop))
-
-    model.add(GRU(64, return_sequences=False))
-    model.add(BatchNormalization())
-    model.add(Dropout(0.7))
-    """
     model.add(BatchNormalization())
     model.add(Dense(128, activation='relu'))  # Dense层用于维度变换
     model.add(Dropout(drop))
@@ -221,38 +142,7 @@ def build_model(drop):
     opt = tf.keras.optimizers.Adam(lr=1e-2, decay=1e-3)  # Adam是一个优化器（自适应矩估计），根据学习进程自动调整学习目标
     model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
     # model.summary()
-
-    # model.add(GRU(20, return_sequences=True,input_shape=(1,56)))
-    # model.add(GRU(20, return_sequences=True))
-    # model.add(GRU(20, return_sequences=True))
-    #
-    # model.add(Dense(10, activation='softmax')) #for multiclass classification
-    # #Compile the model
-    # model.compile(loss='sparse_categorical_crossentropy', optimizer='adam',
-    #               # metrics=['accuracy',f1_m,precision_m, recall_m]
-    #               metrics=['accuracy']
-    #              )
-    # model.summary()
-    # 两层64 -> 0.9660
-    # 两层20 -> 0.9646
-    # 三层20 -> 0.9647
-    # 原模型 64 64 64 128 -> 0.9637
-    # 原模型 64 64 64 128 drop=0.65 -> 0.9660
-    # 原模型 32 32 32 128 drop=0.65 -> 0.9622
-    # 原模型 16 32 64 128 drop=0.65 -> 0.9620
-    # 原模型 128 128 128 128 drop=0.65 -> 0.9668
-    # 原模型 128 128 128 128 drop=0.60 -> 0.9680
-    # 原模型 64 64 64 drop=0.50 -> 0.9703
-    # 原模型 128 128 128 drop=0.65 -> 0.9675
-    # 原模型 128 128 128 drop=0.50 -> 0.9724
-    # 原模型 128 128 128 drop=0.30 -> 0.9738
-    # 原模型 128 128 128 drop=0.5 0.4 0.3 -> 0.9724
-    # 原模型 128 128 256 drop=0.5 -> 0.9729
-    # BGD64 BGD64 BGD64 drop=0.5 -> 0.9696
-    # BGD128 BGD128 BGD128 drop=0.5 -> 0.9735
-    # BGD128 BGD128 BGD128 drop=0.3 -> 0.9741
-    # BGD128 BGD128 BGDB128 drop=0.3 -> 0.9749
-    # all_models.py的GRU模型 -> 0.9644
+    
     return model
 
 #The GRU input layer must be 3D.
